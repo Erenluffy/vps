@@ -2,18 +2,17 @@ name: vps
 
 on:
   push:
-    branches: [  "main"  ]
+    branches: [main]
   pull_request:
-    branches: [  "main"  ]
+    branches: [main]
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-  steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-
-    - name: Run VPS
-      run: curl -sSf https://sshx.io/get | sh  -s run
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
