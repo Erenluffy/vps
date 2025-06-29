@@ -1,18 +1,54 @@
-name: vps
+name: Secure VPS-like Environment
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
   workflow_dispatch:
+    inputs:
+      ssh_key:
+        description: 'Your SSH private key (PEM format)'
+        required: true
+      server_ip:
+        description: 'Your server IP for reverse tunnel'
+        required: true
+      server_user:
+        description: 'Your server username'
+        required: true
 
 jobs:
-  build:
+  secure-shell:
     runs-on: ubuntu-latest
+    timeout-minutes: 43200  # 30 days max
+
     steps:
-      - name: Checkout repository
+      - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Setup tmate session
-        uses: mxschmitt/action-tmate@v3
+      - name: Setup SSH environment
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ github.event.inputs.ssh_key }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan ${{ github.event.inputs.server_ip }} >> ~/.ssh/known_hosts
+
+      - name: Establish reverse SSH tunnel
+        run: |
+          ssh -N -R 2222:localhost:22 \
+          -o ServerAliveInterval=60 \
+          -o ExitOnForwardFailure=yes \
+          ${{ github.event.inputs.server_user }}@${{ github.event.inputs.server_ip }} &
+          echo "Tunnel PID: $!"
+
+      - name: Install persistent tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            openssh-server tmux net-tools \
+            autossh
+
+      - name: Start SSH service
+        run: |
+          sudo service ssh start
+          echo "GitHub Runner IP: $(hostname -I)"
+          echo "Connect via your server: ssh -p 2222 runner@localhost"
+
+      - name: Keep alive
+        run: while true; do sleep 300; done
